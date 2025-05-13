@@ -7,6 +7,7 @@ export interface User {
   name: string;
   email: string;
   password: string;
+  phone?: string; // Added phone as optional property
   createdAt: string;
 }
 
@@ -35,12 +36,13 @@ export interface Claim {
 }
 
 // Mock users data
-const users: User[] = [
+export const users: User[] = [
   {
     id: '1',
     name: 'John Doe',
     email: 'john@example.com',
     password: 'password123',
+    phone: '123-456-7890', // Added phone
     createdAt: new Date().toISOString(),
   },
   {
@@ -48,6 +50,7 @@ const users: User[] = [
     name: 'Jane Smith',
     email: 'jane@example.com',
     password: 'password123',
+    phone: '098-765-4321', // Added phone
     createdAt: new Date().toISOString(),
   },
 ];
@@ -108,6 +111,7 @@ const claims: Claim[] = [
 export const getUsers = () => [...users];
 export const getUserById = (id: string) => users.find(user => user.id === id);
 export const getUserByEmail = (email: string) => users.find(user => user.email === email);
+export const findUserByEmail = getUserByEmail; // Add the missing findUserByEmail function
 
 export const addUser = (userData: Omit<User, 'id' | 'createdAt'>) => {
   const newUser = {

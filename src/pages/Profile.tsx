@@ -51,11 +51,17 @@ const Profile = () => {
   const onSubmit = async (data: ProfileFormValues) => {
     setIsSubmitting(true);
     try {
-      updateUser({
+      const userData: Partial<User> = {
         name: data.name,
         email: data.email,
-        phone: data.phone,
-      });
+      };
+      
+      // Only include phone if it has a value
+      if (data.phone) {
+        (userData as any).phone = data.phone;
+      }
+      
+      updateUser(userData);
     } finally {
       setIsSubmitting(false);
     }

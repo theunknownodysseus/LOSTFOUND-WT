@@ -87,7 +87,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
-    const newUser = addUser({ name, email, password, phone });
+    // Only include phone if it has a value
+    const userData: Omit<User, 'id' | 'createdAt'> = { name, email, password };
+    if (phone) {
+      (userData as any).phone = phone;
+    }
+    
+    const newUser = addUser(userData);
     
     // Remove password from stored user
     const { password: _, ...safeUser } = newUser;
