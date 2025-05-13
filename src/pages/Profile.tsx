@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import PageContainer from '@/components/layout/PageContainer';
+import { User } from '@/lib/mockDb';  // Import the User type
 
 import { Button } from '@/components/ui/button';
 import {
