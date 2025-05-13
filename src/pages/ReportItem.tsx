@@ -6,8 +6,9 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { addItem } from '@/lib/mockDb';
-import PageContainer from '@/components/layout/PageContainer';
+import { toast } from '@/hooks/use-toast';
 
+import PageContainer from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -26,35 +27,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useToast } from '@/components/ui/use-toast';
 
-const reportSchema = z.object({
+const itemSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters long' }),
-  description: z.string().min(10, { message: 'Description must be at least 10 characters long' }),
+  description: z.string().min(10, { message: 'Please provide a detailed description' }),
   category: z.string().min(1, { message: 'Please select a category' }),
-  status: z.enum(['lost', 'found']),
-  date: z.string().min(1, { message: 'Please enter a date' }),
-  location: z.string().min(3, { message: 'Location must be at least 3 characters long' }),
-  imageUrl: z.string().optional(),
+  status: z.enum(['lost', 'found'], { 
+    required_error: 'Please specify if the item is lost or found' 
+  }),
+  date: z.string().min(1, { message: 'Please select a date' }),
+  location: z.string().min(3, { message: 'Please provide a location' }),
+  image: z.any().optional(),
 });
 
-type ReportFormValues = z.infer<typeof reportSchema>;
+type ItemFormValues = z.infer<typeof itemSchema>;
+
+const categories = [
+  'Electronics', 'Keys', 'Wallet', 'ID/Card', 'Jewelry', 
+  'Clothing', 'Bag/Purse', 'Books', 'Personal Items', 'Other'
+];
 
 const ReportItem = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Redirect if not logged in
-  if (!isAuthenticated) {
-    navigate('/login');
-    return null;
-  }
-
-  const form = useForm<ReportFormValues>({
-    resolver: zodResolver(reportSchema),
+  const form = useForm<ItemFormValues>({
+    resolver: zodResolver(itemSchema),
     defaultValues: {
       title: '',
       description: '',
@@ -62,30 +63,38 @@ const ReportItem = () => {
       status: 'lost',
       date: new Date().toISOString().split('T')[0],
       location: '',
-      imageUrl: '/placeholder.svg', // Default placeholder image
     },
   });
 
-  const onSubmit = (data: ReportFormValues) => {
-    if (!currentUser) {
+  const onSubmit = async (data: ItemFormValues) => {
+    if (!isAuthenticated || !currentUser) {
       toast({
         title: "Authentication Required",
-        description: "Please log in to report items",
+        description: "Please log in to report an item.",
         variant: "destructive",
       });
+      navigate('/login');
       return;
     }
-
+    
     setIsSubmitting(true);
+    
     try {
+      // Add the item to the mock database
       const newItem = addItem({
-        ...data,
         userId: currentUser.id,
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        status: data.status,
+        date: data.date,
+        location: data.location,
+        imageUrl: '/placeholder.svg', // In a real app, handle image upload
       });
-
+      
       toast({
         title: "Item Reported Successfully",
-        description: `Your ${data.status} item has been reported.`,
+        description: "Your item has been added to our database.",
       });
       
       navigate(`/items/${newItem.id}`);
@@ -95,38 +104,47 @@ const ReportItem = () => {
         description: "Failed to report item. Please try again.",
         variant: "destructive",
       });
+      console.error("Error reporting item:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (!isAuthenticated) {
+    navigate('/login');
+    return null;
+  }
+
   return (
-    <PageContainer>
-      <div className="max-w-2xl mx-auto my-12 px-4">
+    <PageContainer className="py-12 px-4 md:px-8">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-2">Report an Item</h1>
+        <p className="text-gray-600 mb-8">
+          Fill out the form below with as much detail as possible to help find your item or locate its owner.
+        </p>
+        
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-          <h1 className="text-2xl font-semibold text-center mb-6">Report an Item</h1>
-          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="status"
                 render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>What are you reporting?</FormLabel>
+                  <FormItem>
+                    <FormLabel>Item Status</FormLabel>
                     <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
+                      <RadioGroup 
+                        onValueChange={field.onChange} 
                         defaultValue={field.value}
                         className="flex space-x-4"
                       >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="lost" id="lost" />
-                          <label htmlFor="lost" className="font-medium">Lost Item</label>
+                          <Label htmlFor="lost">I lost this item</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="found" id="found" />
-                          <label htmlFor="found" className="font-medium">Found Item</label>
+                          <Label htmlFor="found">I found this item</Label>
                         </div>
                       </RadioGroup>
                     </FormControl>
@@ -134,15 +152,33 @@ const ReportItem = () => {
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Item Name</FormLabel>
+                    <FormLabel>Item Name/Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Black Wallet" {...field} />
+                      <Input placeholder="e.g. Black Wallet, iPhone 13, Car Keys" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Provide a detailed description of the item..." 
+                        className="min-h-32"
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -163,13 +199,11 @@ const ReportItem = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Electronics">Electronics</SelectItem>
-                          <SelectItem value="Jewelry">Jewelry</SelectItem>
-                          <SelectItem value="Clothing">Clothing</SelectItem>
-                          <SelectItem value="Documents">Documents</SelectItem>
-                          <SelectItem value="Keys">Keys</SelectItem>
-                          <SelectItem value="Bags">Bags</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -183,7 +217,7 @@ const ReportItem = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {form.getValues('status') === 'lost' ? 'Date Lost' : 'Date Found'}
+                        {form.watch('status') === 'lost' ? 'Date Lost' : 'Date Found'}
                       </FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
@@ -201,24 +235,9 @@ const ReportItem = () => {
                   <FormItem>
                     <FormLabel>Location</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Central Park, near the fountain" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Please provide detailed description of the item..."
-                        className="min-h-32"
-                        {...field}
+                      <Input 
+                        placeholder="e.g. Central Park, Coffee Shop on Main St., Bus #42" 
+                        {...field} 
                       />
                     </FormControl>
                     <FormMessage />
@@ -226,37 +245,41 @@ const ReportItem = () => {
                 )}
               />
               
-              {/* In a real app, this would be an image upload field */}
               <FormField
                 control={form.control}
-                name="imageUrl"
+                name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL (Optional)</FormLabel>
+                    <FormLabel>Image (Optional)</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="URL to item image"
-                        {...field}
-                        value={field.value || '/placeholder.svg'}
+                        type="file" 
+                        accept="image/*"
+                        disabled
+                        className="cursor-not-allowed"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            field.onChange(file);
+                          }
+                        }}
                       />
                     </FormControl>
-                    <p className="text-xs text-gray-500 mt-1">
-                      In a real app, this would be a file upload component.
+                    <p className="text-sm text-gray-500">
+                      Image upload will be available in a future update
                     </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  className="bg-custom-purple hover:bg-custom-secondaryPurple"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit Report'}
-                </Button>
-              </div>
+              <Button 
+                type="submit" 
+                className="w-full bg-custom-purple hover:bg-custom-secondaryPurple"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Report'}
+              </Button>
             </form>
           </Form>
         </div>

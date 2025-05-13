@@ -43,24 +43,24 @@ export const Footer = () => {
             <h3 className="text-sm font-semibold text-gray-800 mb-2">HELP</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/faq" className="text-sm text-gray-600 hover:text-custom-purple">
+                <span className="text-sm text-gray-600 hover:text-custom-purple cursor-not-allowed">
                   FAQ
-                </Link>
+                </span>
               </li>
               <li>
-                <Link to="/contact" className="text-sm text-gray-600 hover:text-custom-purple">
+                <span className="text-sm text-gray-600 hover:text-custom-purple cursor-not-allowed">
                   Contact Us
-                </Link>
+                </span>
               </li>
               <li>
-                <Link to="/privacy" className="text-sm text-gray-600 hover:text-custom-purple">
+                <span className="text-sm text-gray-600 hover:text-custom-purple cursor-not-allowed">
                   Privacy Policy
-                </Link>
+                </span>
               </li>
               <li>
-                <Link to="/terms" className="text-sm text-gray-600 hover:text-custom-purple">
+                <span className="text-sm text-gray-600 hover:text-custom-purple cursor-not-allowed">
                   Terms of Service
-                </Link>
+                </span>
               </li>
             </ul>
           </div>
