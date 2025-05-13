@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, addUser, findUserByEmail, users } from '@/lib/mockDb';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
@@ -9,8 +10,9 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<User | null>;
   register: (name: string, email: string, password: string, phone?: string) => Promise<User | null>;
-  logout: () => void;
-  updateUser: (user: Partial<User>) => void;
+  logout: () => Promise<void>;
+  updateUser: (userData: { name?: string; email?: string; phone?: string }) => Promise<void>;
+  session: Session | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,130 +27,179 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        // Verify this user exists in our "database"
-        const userExists = users.some(u => u.id === parsedUser.id);
-        if (userExists) {
-          setCurrentUser(parsedUser);
-        } else {
-          localStorage.removeItem('currentUser');
-        }
-      } catch (error) {
-        localStorage.removeItem('currentUser');
+    // First set up the auth listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        setCurrentUser(currentSession?.user || null);
       }
-    }
-    setLoading(false);
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setCurrentUser(currentSession?.user || null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<User | null> => {
-    console.log("Login attempt with:", email, password);
-    console.log("Available users:", users);
-    
-    const user = findUserByEmail(email);
-    console.log("Found user:", user);
-    
-    if (!user || user.password !== password) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back!`
+      });
+      
+      return data.user;
+    } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Login Failed",
-        description: "Invalid email or password",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
       return null;
     }
-
-    // Remove password from stored user
-    const { password: _, ...safeUser } = user;
-    const userToStore = { ...safeUser, id: user.id } as User;
-    
-    setCurrentUser(userToStore);
-    localStorage.setItem('currentUser', JSON.stringify(userToStore));
-    
-    toast({
-      title: "Login Successful",
-      description: `Welcome back, ${user.name}!`
-    });
-    
-    return userToStore;
   };
 
   const register = async (name: string, email: string, password: string, phone?: string): Promise<User | null> => {
-    const existingUser = findUserByEmail(email);
-    
-    if (existingUser) {
+    try {
+      // Check if user exists first by trying to sign in
+      const { data: { user }, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            phone
+          }
+        }
+      });
+      
+      if (error) {
+        toast({
+          title: "Registration Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      // Create profile record
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            { 
+              id: user.id, 
+              name, 
+              email, 
+              phone 
+            }
+          ]);
+
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+        }
+
+        toast({
+          title: "Registration Successful",
+          description: `Welcome, ${name}!`
+        });
+      }
+      
+      return user;
+    } catch (error) {
+      console.error("Registration error:", error);
       toast({
         title: "Registration Failed",
-        description: "Email already in use",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
       return null;
     }
+  };
 
-    // Create user data object
-    const userData: Omit<User, 'id' | 'createdAt'> = { 
-      name, 
-      email, 
-      password 
-    };
-    
-    // Add phone if provided
-    if (phone) {
-      (userData as any).phone = phone;
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        toast({
+          title: "Logout Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setCurrentUser(null);
+      setSession(null);
+      
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out"
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Logout Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
     }
-    
-    const newUser = addUser(userData);
-    console.log("New user registered:", newUser);
-    
-    // Remove password from stored user
-    const { password: _, ...safeUser } = newUser;
-    const userToStore = { ...safeUser, id: newUser.id } as User;
-    
-    setCurrentUser(userToStore);
-    localStorage.setItem('currentUser', JSON.stringify(userToStore));
-    
-    toast({
-      title: "Registration Successful",
-      description: `Welcome, ${name}!`
-    });
-    
-    return userToStore;
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out"
-    });
-  };
-
-  const updateUser = (userData: Partial<User>) => {
+  const updateUser = async (userData: { name?: string; email?: string; phone?: string }) => {
     if (!currentUser) return;
     
-    // Find the user in the "database" and update
-    const userIndex = users.findIndex(u => u.id === currentUser.id);
-    if (userIndex >= 0) {
-      users[userIndex] = { ...users[userIndex], ...userData };
-      const updatedUser = users[userIndex];
-      
-      // Remove password from stored user
-      const { password: _, ...safeUser } = updatedUser;
-      const userToStore = { ...safeUser, id: updatedUser.id } as User;
-      
-      setCurrentUser(userToStore);
-      localStorage.setItem('currentUser', JSON.stringify(userToStore));
-      
+    try {
+      // Update profile in the database
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(userData)
+        .eq('id', currentUser.id);
+
+      if (updateError) {
+        toast({
+          title: "Update Failed",
+          description: updateError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully"
+      });
+    } catch (error) {
+      console.error("Update profile error:", error);
+      toast({
+        title: "Update Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive"
       });
     }
   };
@@ -160,7 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     register,
     logout,
-    updateUser
+    updateUser,
+    session
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

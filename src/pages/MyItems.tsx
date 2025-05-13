@@ -1,33 +1,73 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getItems, Item } from '@/lib/mockDb';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import PageContainer from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
 import { FilePlus } from 'lucide-react';
 import ItemCard from '@/components/items/ItemCard';
+import { useToast } from '@/components/ui/use-toast';
+
+interface Item {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  status: 'lost' | 'found';
+  date: string;
+  location: string;
+  image_url?: string;
+  created_at: string;
+  user_id: string;
+}
 
 const MyItems = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchItems = async () => {
+      if (currentUser) {
+        setLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('items')
+            .select('*')
+            .eq('user_id', currentUser.id);
+          
+          if (error) {
+            throw error;
+          }
+          
+          setItems(data || []);
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to load items",
+            variant: "destructive"
+          });
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchItems();
+  }, [currentUser, isAuthenticated, navigate, toast]);
 
   // Redirect if not logged in
   if (!isAuthenticated) {
-    navigate('/login');
     return null;
   }
-
-  useEffect(() => {
-    if (currentUser) {
-      setLoading(true);
-      const fetchedItems = getItems({ userId: currentUser.id });
-      setItems(fetchedItems);
-      setLoading(false);
-    }
-  }, [currentUser]);
 
   return (
     <PageContainer className="py-12 px-4 md:px-8">
@@ -49,7 +89,18 @@ const MyItems = () => {
         ) : items.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {items.map(item => (
-              <ItemCard key={item.id} item={item} />
+              <ItemCard key={item.id} item={{
+                id: item.id,
+                title: item.name,
+                description: item.description,
+                category: item.category,
+                status: item.status,
+                date: item.date,
+                location: item.location,
+                imageUrl: item.image_url || '/placeholder.svg',
+                createdAt: item.created_at,
+                userId: item.user_id
+              }} />
             ))}
           </div>
         ) : (

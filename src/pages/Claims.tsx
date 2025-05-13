@@ -1,16 +1,31 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getClaimsByUserId, getItemById, Claim } from '@/lib/mockDb';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import PageContainer from '@/components/layout/PageContainer';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast';
+
+interface Claim {
+  id: string;
+  status: 'approved' | 'rejected' | 'pending';
+  message: string;
+  created_at: string;
+  user_id: string;
+  item_id: string;
+}
+
+interface Item {
+  id: string;
+  name: string;
+  status: 'lost' | 'found';
+}
 
 interface ClaimWithItem extends Claim {
-  itemTitle: string;
-  itemStatus: 'lost' | 'found';
+  item: Item;
 }
 
 const Claims = () => {
@@ -18,32 +33,73 @@ const Claims = () => {
   const navigate = useNavigate();
   const [claims, setClaims] = useState<ClaimWithItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchClaims = async () => {
+      try {
+        // Fetch claim requests for the current user
+        const { data: claimData, error: claimError } = await supabase
+          .from('claim_requests')
+          .select('*')
+          .eq('user_id', currentUser.id);
+
+        if (claimError) {
+          throw claimError;
+        }
+
+        if (!claimData || claimData.length === 0) {
+          setClaims([]);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch item details for each claim
+        const itemIds = claimData.map(claim => claim.item_id);
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('items')
+          .select('id, name, status')
+          .in('id', itemIds);
+
+        if (itemsError) {
+          throw itemsError;
+        }
+
+        // Combine claim and item data
+        const claimsWithItems = claimData.map(claim => {
+          const item = itemsData?.find(item => item.id === claim.item_id) || 
+            { id: claim.item_id, name: 'Unknown Item', status: 'lost' as const };
+          
+          return {
+            ...claim,
+            item
+          };
+        });
+
+        setClaims(claimsWithItems);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load claims",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClaims();
+  }, [currentUser, isAuthenticated, navigate, toast]);
 
   // Redirect if not logged in
   if (!isAuthenticated) {
-    navigate('/login');
     return null;
   }
-
-  useEffect(() => {
-    if (currentUser) {
-      setLoading(true);
-      const fetchedClaims = getClaimsByUserId(currentUser.id);
-      
-      // Add item details to each claim
-      const claimsWithItems = fetchedClaims.map(claim => {
-        const item = getItemById(claim.itemId);
-        return {
-          ...claim,
-          itemTitle: item?.title || 'Unknown Item',
-          itemStatus: item?.status || 'lost',
-        };
-      });
-      
-      setClaims(claimsWithItems);
-      setLoading(false);
-    }
-  }, [currentUser]);
 
   return (
     <PageContainer className="py-12 px-4 md:px-8">
@@ -62,16 +118,16 @@ const Claims = () => {
                   <div className="flex justify-between items-start">
                     <h2 className="text-xl font-medium">
                       <Link 
-                        to={`/items/${claim.itemId}`} 
+                        to={`/items/${claim.item_id}`} 
                         className="hover:text-custom-purple"
                       >
-                        {claim.itemTitle}
+                        {claim.item.name}
                       </Link>
                     </h2>
                     
                     <div className="flex items-center space-x-2">
-                      <Badge className={claim.itemStatus === 'lost' ? 'bg-red-500' : 'bg-green-500'}>
-                        {claim.itemStatus === 'lost' ? 'Lost' : 'Found'}
+                      <Badge className={claim.item.status === 'lost' ? 'bg-red-500' : 'bg-green-500'}>
+                        {claim.item.status === 'lost' ? 'Lost' : 'Found'}
                       </Badge>
                       
                       <Badge className={
@@ -95,11 +151,11 @@ const Claims = () => {
                 <CardFooter className="bg-gray-50 px-6 py-3">
                   <div className="flex justify-between w-full text-sm">
                     <span className="text-gray-500">
-                      Claimed on {format(new Date(claim.createdAt), 'PPP')}
+                      Claimed on {format(new Date(claim.created_at), 'PPP')}
                     </span>
                     
                     <Link 
-                      to={`/items/${claim.itemId}`}
+                      to={`/items/${claim.item_id}`}
                       className="text-custom-purple hover:underline font-medium"
                     >
                       View Item

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { getItems, Item } from '@/lib/mockDb';
+import { supabase } from '@/integrations/supabase/client';
 import PageContainer from '@/components/layout/PageContainer';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,20 @@ import {
 } from '@/components/ui/select';
 import ItemCard from '@/components/items/ItemCard';
 import { Search as SearchIcon } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+
+interface Item {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  status: 'lost' | 'found';
+  date: string;
+  location: string;
+  image_url?: string;
+  created_at: string;
+  user_id: string;
+}
 
 const Search = () => {
   const [allItems, setAllItems] = useState<Item[]>([]);
@@ -20,18 +34,46 @@ const Search = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [isSearchPerformed, setIsSearchPerformed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch all items
-    const fetchedItems = getItems();
-    setAllItems(fetchedItems);
-  }, []);
+    const fetchItems = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('items')
+          .select('*');
+        
+        if (error) {
+          throw error;
+        }
+        
+        setAllItems(data || []);
+        
+        // Extract unique categories
+        const uniqueCategories = [...new Set(data?.map(item => item.category) || [])];
+        setCategories(uniqueCategories);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load items",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItems();
+  }, [toast]);
 
   const handleSearch = () => {
     const filteredItems = allItems.filter((item) => {
       const matchesSearch = !searchTerm ? true : (
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.location.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -41,8 +83,21 @@ const Search = () => {
       
       return matchesSearch && matchesCategory && matchesStatus;
     });
+
+    const formattedResults = filteredItems.map(item => ({
+      id: item.id,
+      title: item.name,
+      description: item.description,
+      category: item.category,
+      status: item.status,
+      date: item.date,
+      location: item.location,
+      imageUrl: item.image_url || '/placeholder.svg',
+      createdAt: item.created_at,
+      userId: item.user_id
+    }));
     
-    setSearchResults(filteredItems);
+    setSearchResults(formattedResults);
     setIsSearchPerformed(true);
   };
 
@@ -53,9 +108,6 @@ const Search = () => {
     setSearchResults([]);
     setIsSearchPerformed(false);
   };
-
-  // Get unique categories from items
-  const categories = [...new Set(allItems.map(item => item.category))];
 
   return (
     <PageContainer className="py-12 px-4 md:px-8">
@@ -124,7 +176,11 @@ const Search = () => {
           </div>
         </div>
         
-        {isSearchPerformed && (
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-lg">Loading items...</p>
+          </div>
+        ) : isSearchPerformed && (
           <div>
             <h2 className="text-xl font-semibold mb-4">
               Search Results ({searchResults.length})

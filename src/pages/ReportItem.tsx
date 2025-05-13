@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
-import { addItem } from '@/lib/mockDb';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
 import PageContainer from '@/components/layout/PageContainer';
@@ -84,17 +84,25 @@ const ReportItem = () => {
       console.log("Submitting item:", data);
       console.log("Current user:", currentUser);
       
-      // Add the item to the mock database
-      const newItem = addItem({
-        userId: currentUser.id,
-        title: data.title,
-        description: data.description,
-        category: data.category,
-        status: data.status,
-        date: data.date,
-        location: data.location,
-        imageUrl: '/placeholder.svg', // In a real app, handle image upload
-      });
+      // Add the item to Supabase
+      const { error, data: newItem } = await supabase
+        .from('items')
+        .insert({
+          user_id: currentUser.id,
+          name: data.title,
+          description: data.description,
+          category: data.category,
+          status: data.status,
+          date: data.date,
+          location: data.location,
+          image_url: '/placeholder.svg', // In a real app, handle image upload to Storage
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        throw error;
+      }
       
       console.log("Item submitted successfully:", newItem);
       
@@ -104,11 +112,11 @@ const ReportItem = () => {
       });
       
       navigate(`/items/${newItem.id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error reporting item:", error);
       toast({
         title: "Error",
-        description: "Failed to report item. Please try again.",
+        description: error.message || "Failed to report item. Please try again.",
         variant: "destructive",
       });
     } finally {
