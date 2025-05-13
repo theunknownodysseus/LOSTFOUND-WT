@@ -1,73 +1,90 @@
-# Welcome to your Lovable project
+# 🧳 Online Lost and Found System for Web Technology
 
-## Project info
+A modern web application to report and retrieve lost items on campus. Built using **React** for the frontend and **Supabase** as the backend-as-a-service (database + auth).
 
-**URL**: https://lovable.dev/projects/517e4f65-5ba4-4d1a-ad23-7f060ccded5c
+---
 
-## How can I edit this code?
+## 🔧 Features
 
-There are several ways of editing your application.
+- 📝 Post lost or found items with details and images  
+- 🔍 Search and filter items by category, location, and date  
+- 🔐 User authentication (Sign Up / Login)  
+- 📤 Upload images directly to Supabase Storage  
+- 📬 Contact owner or finder via email  
+- 🌐 Fully responsive design for mobile and desktop
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/517e4f65-5ba4-4d1a-ad23-7f060ccded5c) and start prompting.
+## 🚀 Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Frontend**: React, Tailwind CSS  
+- **Backend/Database**: Supabase (PostgreSQL, Auth, Storage)  
+- **Hosting**: Netlify / Vercel (optional)  
+- **Deployment**: CI/CD ready
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 📦 Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/yourusername/lost-and-found-react.git
+   cd lost-and-found-react
+Install dependencies
 
-Follow these steps:
+bash:
+npm install
+Set up environment variables
+Create a .env file in the root directory and add your Supabase keys:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+env:
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+Run the app
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+bash:
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+🗃 Database Schema (Supabase)
+items
+Field	Type	Description
+id	UUID	Primary key
+title	Text	Item name/title
+description	Text	Item details
+category	Text	e.g., Electronics, Bags
+status	Text	"Lost" or "Found"
+image_url	Text	Supabase Storage URL
+location	Text	Where it was lost/found
+date_reported	Date	Date of report
+user_id	UUID	Foreign key (users table)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+🔐 Authentication
+Uses Supabase Auth (email/password)
 
-**Use GitHub Codespaces**
+Auth guards to protect item posting and contact features
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Logged-in users can:
 
-## What technologies are used for this project?
+Post new items
 
-This project is built with:
+Edit/delete their own posts
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+View contact info of other users
 
-## How can I deploy this project?
+📸 Image Uploads
+Images are uploaded to Supabase Storage and linked via image_url.
 
-Simply open [Lovable](https://lovable.dev/projects/517e4f65-5ba4-4d1a-ad23-7f060ccded5c) and click on Share -> Publish.
+✅ To-Do / Future Improvements
+✅ Add pagination and lazy loading
 
-## Can I connect a custom domain to my Lovable project?
+🔜 Add comment/discussion section under posts
 
-Yes, you can!
+🔜 Notification system when item is marked as returned
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+🔜 Admin dashboard for moderation
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+🙌 Contributing
+Feel free to open issues or pull requests to help improve the system!
+
+📄 License
+This project is licensed under the MIT License.
