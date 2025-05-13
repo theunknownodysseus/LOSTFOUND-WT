@@ -49,7 +49,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string): Promise<User | null> => {
+    console.log("Login attempt with:", email, password);
+    console.log("Available users:", users);
+    
     const user = findUserByEmail(email);
+    console.log("Found user:", user);
     
     if (!user || user.password !== password) {
       toast({
@@ -87,13 +91,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
-    // Only include phone if it has a value
-    const userData: Omit<User, 'id' | 'createdAt'> = { name, email, password };
+    // Create user data object
+    const userData: Omit<User, 'id' | 'createdAt'> = { 
+      name, 
+      email, 
+      password 
+    };
+    
+    // Add phone if provided
     if (phone) {
       (userData as any).phone = phone;
     }
     
     const newUser = addUser(userData);
+    console.log("New user registered:", newUser);
     
     // Remove password from stored user
     const { password: _, ...safeUser } = newUser;

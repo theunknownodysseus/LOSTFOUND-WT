@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { addItem } from '@/lib/mockDb';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 import PageContainer from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,7 @@ const ReportItem = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
   
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
@@ -80,6 +81,9 @@ const ReportItem = () => {
     setIsSubmitting(true);
     
     try {
+      console.log("Submitting item:", data);
+      console.log("Current user:", currentUser);
+      
       // Add the item to the mock database
       const newItem = addItem({
         userId: currentUser.id,
@@ -92,6 +96,8 @@ const ReportItem = () => {
         imageUrl: '/placeholder.svg', // In a real app, handle image upload
       });
       
+      console.log("Item submitted successfully:", newItem);
+      
       toast({
         title: "Item Reported Successfully",
         description: "Your item has been added to our database.",
@@ -99,12 +105,12 @@ const ReportItem = () => {
       
       navigate(`/items/${newItem.id}`);
     } catch (error) {
+      console.error("Error reporting item:", error);
       toast({
         title: "Error",
         description: "Failed to report item. Please try again.",
         variant: "destructive",
       });
-      console.error("Error reporting item:", error);
     } finally {
       setIsSubmitting(false);
     }

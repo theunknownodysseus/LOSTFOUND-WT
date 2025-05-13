@@ -56,7 +56,7 @@ export const users: User[] = [
 ];
 
 // Mock items data
-const items: Item[] = [
+export const items: Item[] = [
   {
     id: '1',
     title: 'iPhone 13 Pro',
@@ -96,7 +96,7 @@ const items: Item[] = [
 ];
 
 // Mock claims data
-const claims: Claim[] = [
+export const claims: Claim[] = [
   {
     id: '1',
     status: 'pending',
@@ -111,7 +111,7 @@ const claims: Claim[] = [
 export const getUsers = () => [...users];
 export const getUserById = (id: string) => users.find(user => user.id === id);
 export const getUserByEmail = (email: string) => users.find(user => user.email === email);
-export const findUserByEmail = getUserByEmail; // Add the missing findUserByEmail function
+export const findUserByEmail = getUserByEmail; // Make sure findUserByEmail is properly exported
 
 export const addUser = (userData: Omit<User, 'id' | 'createdAt'>) => {
   const newUser = {
@@ -143,6 +143,8 @@ export const addItem = (itemData: Omit<Item, 'id' | 'createdAt'>) => {
     createdAt: new Date().toISOString(),
   };
   items.push(newItem);
+  console.log("Item added to database:", newItem);
+  console.log("Total items in database:", items.length);
   return newItem;
 };
 
